@@ -1,14 +1,13 @@
 (function() {
 	const DATA_WIDTH = 8;
 	const DATA_HEIGHT = 7;
-	//const TILE_SIZE = 90;
-	const RAY_DEGREE_INCR = 1;
+	const RAY_DEGREE_INCR = 0.3;
 	const RAY_RADIAN_INCR = Math.PI * RAY_DEGREE_INCR / 180;
-	const RAY_LENGTH_INCREMENT = 0.1;
-	const RAY_SPACING = 1.4;
+	const RAY_LENGTH_INCREMENT = 0.01;
+	const RAY_SPACING = 1.6;
 	const RAY_MAX = 15;
-	const HALF_VIEW_ARC = Math.PI * 40 / 180;
-	const OBSTACLE_WIDTH = 7;
+	const HALF_VIEW_ARC = Math.PI * 35 / 180;
+	const OBSTACLE_WIDTH = 2;
 	const OBSTACLE_HEIGHT = 300;
 	const HEIGHT_SCALING = 30;
 
@@ -20,12 +19,12 @@
 		[1, 0, 0, 0, 0, 0, 0, 1],
 		[1, 0, 0, 9, 0, 0, 0, 1],
 		[1, 0, 0, 0, 0, 0, 0, 1],
-		[1, 0, 0, 0, 0, 0, 0, 1],
+		[1, 0, 1, 0, 0, 0, 0, 1],
 		[1, 0, 1, 0, 0, 0, 1, 1],
 		[1, 1, 1, 1, 1, 1, 1, 1],
 	];
-	let _viewPosition = {x: 3, y: 2};
-	let _viewAngle = -0.15;
+	let _viewPosition = {x: 3, y: 3};
+	let _viewAngle = 0;
 
 	document.addEventListener('DOMContentLoaded', function() {
 		_canvas = document.getElementById('canvas');
@@ -34,10 +33,31 @@
 		_canvasMidpoint.x = _canvas.width / 2;
 		_canvasMidpoint.y = _canvas.height / 2;
 
-		render(); console.log('rendering started');
+		render();
 
 		document.addEventListener('keypress', function(e) {
-			console.log(e);
+			switch(e.key) {
+				case 'ArrowLeft':
+					_viewAngle += -0.05;
+					break;
+				case 'ArrowRight':
+					_viewAngle += 0.05;
+					break;
+				case 'ArrowUp':
+					_viewPosition = {
+						x: _viewPosition.x + 0.08 * Math.cos(_viewAngle),
+						y: _viewPosition.y + 0.08 * Math.sin(_viewAngle),
+					};
+					break;
+				case 'ArrowDown':
+					_viewPosition = {
+						x: _viewPosition.x - 0.08 * Math.cos(_viewAngle),
+						y: _viewPosition.y - 0.08 * Math.sin(_viewAngle),
+					};
+					break;
+				default:
+					break;
+			}
 		});
 	});
 
@@ -47,7 +67,7 @@
 		clearCanvas();
 		drawCanvas(rays);
 
-		//window.requestAnimationFrame(render);
+		window.requestAnimationFrame(render);
 	}
 
 	function clearCanvas() {
@@ -59,14 +79,11 @@
 		rays.forEach(function(ray) {
 			drawRay(ray);
 		});
-		console.log('drew rays');
 	}
 
 	function drawRay(ray) {
-		let objAngle = ray.angle - ray.relativeAngle; // relative to viewer
-		let objHeight = OBSTACLE_HEIGHT - ray.length * HEIGHT_SCALING;
-		//let objHeight = (OBSTACLE_HEIGHT - Math.cos(objAngle) * ray.length * HEIGHT_SCALING);
-		let objCenter = {x: (objAngle * _canvasMidpoint.x) * RAY_SPACING + _canvasMidpoint.x, y: _canvasMidpoint.y};
+		let objHeight = OBSTACLE_HEIGHT / ray.length;
+		let objCenter = {x: (ray.angleDiff * _canvasMidpoint.x) * RAY_SPACING + _canvasMidpoint.x, y: _canvasMidpoint.y};
 
 		_context.translate(objCenter.x, objCenter.y);
 		_context.fillStyle = '#66aad0';
@@ -81,27 +98,28 @@
 		let rays = [];
 
 		for(let a = angle - HALF_VIEW_ARC, max = angle + HALF_VIEW_ARC; a <= max; a += RAY_RADIAN_INCR) {
-			rays.push( measureRay(a, position, angle) );
+			rays.push( measureRay(a, angle, position) );
 		}
 
 		return rays;
 	}
 
-	function measureRay(radians, position, relativeAngle) {
+	function measureRay(angle, relativeAngle, position) {
 		let clear = true;
 		let testLength = 0;
 		let ray = {
 			length:			0,
-			angle:			radians,
-			relativeAngle:	relativeAngle,
+			//angle:			radians,
+			//relativeAngle:	relativeAngle,
+			angleDiff:		angle - relativeAngle,
 			hitObstacle:	false,
 			origin:			{x: position.x, y: position.y},
 		};
 
 		while( clear ) {
 			let testPoint = {
-				x: position.x + testLength * Math.cos(radians),
-				y: position.y + testLength * Math.sin(radians)
+				x: position.x + testLength * Math.cos(angle),
+				y: position.y + testLength * Math.sin(angle),
 			};
 
 			clear = isPointFree(testPoint.x, testPoint.y);
@@ -114,7 +132,7 @@
 		}
 
 		ray.hitObstacle = !clear;
-		ray.length = testLength;
+		ray.length = testLength * Math.cos(ray.angleDiff);
 
 		return ray;
 	}
