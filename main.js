@@ -1,10 +1,10 @@
 (function() {
 	const DATA_WIDTH = 8;
 	const DATA_HEIGHT = 7;
-	const DATA_DEPTH = 3;
-	const RAY_DEGREE_INCR = 1; // 0.3
+	const DATA_DEPTH = 1;
+	const RAY_DEGREE_INCR = 0.8; // 0.3
 	const RAY_RADIAN_INCR = Math.PI * RAY_DEGREE_INCR / 180;
-	const RAY_LENGTH_INCREMENT = 0.01;
+	const RAY_LENGTH_INCREMENT = 0.15;
 	const RAY_SPACING = 1.5;
 	const RAY_MAX = 25;
 	const HALF_VIEW_ARC = Math.PI * 37 / 180;
@@ -36,7 +36,7 @@
 		],
 		[
 			[1, 1, 1, 1, 1, 1, 1, 1],
-			[1, 0, 0, 0, 0, 0, 0, 0],
+			[1, 0, 0, 0, 0, 0, 1, 1],
 			[1, 0, 0, 0, 0, 0, 0, 0],
 			[1, 0, 0, 0, 0, 0, 1, 1],
 			[1, 0, 0, 0, 0, 0, 1, 1],
@@ -45,8 +45,8 @@
 		]
 	];
 
-	let _viewPosition = {x: 3, y: 3, z: 0};
-	let _viewAngle = {h: 0, v: 0.45};
+	let _viewPosition = {x: 1.5, y: 2, z: 0};
+	let _viewAngle = {h: 0, v: 0};
 
 	document.addEventListener('DOMContentLoaded', function() {
 		_canvas = document.getElementById('canvas');
@@ -60,10 +60,10 @@
 		document.addEventListener('keypress', function(e) {
 			switch(e.key) {
 				case 'ArrowLeft':
-					_viewAngle += -0.05;
+					_viewAngle.h += -0.05;
 					break;
 				case 'ArrowRight':
-					_viewAngle += 0.05;
+					_viewAngle.h += 0.05;
 					break;
 				case 'ArrowUp':
 					_viewPosition = {
@@ -71,7 +71,6 @@
 						y: _viewPosition.y + 0.08 * Math.sin(_viewAngle.h),
 						z: 0,
 					};
-					render();
 					break;
 				case 'ArrowDown':
 					_viewPosition = {
@@ -79,11 +78,12 @@
 						y: _viewPosition.y - 0.08 * Math.sin(_viewAngle.h),
 						z: 0,
 					};
-					render();
 					break;
 				default:
 					break;
 			}
+
+			render();
 		});
 	});
 
@@ -121,21 +121,18 @@
 
 	function drawRay3D(ray) {
 		/*
-		let objHeight = OBSTACLE_HEIGHT / ray.length;
-		let objCenter = {
-			x: (ray.angleDiff * _canvasMidpoint.x) * RAY_SPACING + _canvasMidpoint.x,
-			y: _canvasMidpoint.y,
-		};
-		*/
-
-		//console.log(ray);
-
-		//let objHeight = 150 / ray.length;
 		let objCenter = {
 			x: (ray.angleDiff.h * _canvasMidpoint.x) * RAY_SPACING + _canvasMidpoint.x,
-			y: (-ray.angleDiff.v * _canvasMidpoint.y) * RAY_SPACING + _canvasMidpoint.y,
-			//y: _canvasMidpoint.y,
+			y: (ray.angleDiff.v * _canvasMidpoint.y) * RAY_SPACING + _canvasMidpoint.y,
 		};
+		*/
+		let objCenter = {
+			x: (ray.angleDiff.h * _canvasMidpoint.x) * RAY_SPACING + _canvasMidpoint.x,
+			y: (ray.angleDiff.v * _canvasMidpoint.y) * RAY_SPACING + _canvasMidpoint.y,
+		};
+
+		//objCenter.x /= ray.lengthHorz;
+		//objCenter.y /= ray.lengthVert;
 		
 		let objWidth = RAY_DOT_SIZE;
 		let objHeight = RAY_DOT_SIZE;
@@ -143,7 +140,7 @@
 		_context.translate(objCenter.x, objCenter.y);
 		_context.fillStyle = '#66aad0';
 		//_context.globalAlpha = 1; //objHeight / OBSTACLE_HEIGHT;
-		_context.globalAlpha = objHeight / ray.length * 1.1; //objHeight / OBSTACLE_HEIGHT;
+		_context.globalAlpha = objHeight / ray.length; //objHeight / OBSTACLE_HEIGHT;
 		_context.fillRect(objWidth / -2, objHeight / -2, objWidth, objHeight);
 		_context.translate(-objCenter.x, -objCenter.y);
 		_context.globalAlpha = 1;
@@ -211,6 +208,8 @@
 		let testLength = 0;
 		let ray = {
 			length:			0,
+			lengthHorz:		0,
+			lengthVert:		0,
 			angleDiff:		{h: rayAngle.h - viewAngle.h, v: rayAngle.v - viewAngle.v},
 			hitObstacle:	false,
 			origin:			{x: position.x, y: position.y, z: position.z},
@@ -219,16 +218,15 @@
 
 		while( clear ) {
 			var testPoint = {};
-
-			testPoint.z = position.z + testLength * Math.sin(rayAngle.v);
-
 			var flatLength = testLength * Math.cos(rayAngle.v);
-			
-			//sin X = O / H
-			//cos X = A / H
 
-			testPoint.x = position.x + flatLength * Math.cos(rayAngle.h);
-			testPoint.y = position.y + flatLength * Math.sin(rayAngle.h);
+			var xDist = testLength * Math.cos(rayAngle.h);
+			var yDist = testLength * Math.sin(rayAngle.h);
+			var zDist = testLength * Math.sin(rayAngle.v);
+			
+			testPoint.x = position.x + xDist;
+			testPoint.y = position.y + yDist;
+			testPoint.z = position.z + zDist;
 
 			clear = isPointFree(testPoint.x, testPoint.y, testPoint.z);
 
@@ -241,11 +239,13 @@
 
 		ray.hitObstacle = !clear;
 		ray.length = testLength;
-		//ray.length = flatLength * Math.cos(ray.angleDiff.h); // distortion correction
+		ray.lengthHorz = Math.sqrt( Math.pow(xDist, 2) + Math.pow(yDist, 2) );
+		ray.lengthVert = Math.sqrt( Math.pow(zDist, 2) + Math.pow(xDist, 2) );
 
-		//console.log(testLength);
-		//console.log(testPoint);
-		//console.log(clear)
+		ray.lengthHorz *= Math.cos(ray.angleDiff.h);
+		ray.lengthVert *= Math.cos(ray.angleDiff.v);
+
+		ray.length = testLength;
 
 		if( !clear ) {
 			ray.dest = testPoint;
@@ -255,9 +255,9 @@
 	}
 
 	function isPointFree(x, y, z) {
-		x = Math.floor(x);
-		y = Math.floor(y);
-		z = Math.floor(z);
+		x = Math.ceil(x);
+		y = Math.ceil(y);
+		z = Math.ceil(z);
 
 		// Normalize position
 		if( x < 0 ) {
