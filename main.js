@@ -1,16 +1,17 @@
 (function() {
 	const DATA_WIDTH = 8;
 	const DATA_HEIGHT = 7;
-	const DATA_DEPTH = 1;
-	const RAY_DEGREE_INCR = 0.8; // 0.3
+	const DATA_DEPTH = 3;
+	const RAY_DEGREE_INCR = 4;// 1; // 0.3
 	const RAY_RADIAN_INCR = Math.PI * RAY_DEGREE_INCR / 180;
-	const RAY_LENGTH_INCREMENT = 0.15;
+	const RAY_LENGTH_INCREMENT = 0.01;
+	const RAY_LENGTH_LARGE_INCREMENT = 0.45;
 	const RAY_SPACING = 1.5;
-	const RAY_MAX = 25;
+	const RAY_MAX = 20;
 	const HALF_VIEW_ARC = Math.PI * 37 / 180;
 	const OBSTACLE_WIDTH = 2;
 	const OBSTACLE_HEIGHT = 300;
-	const RAY_DOT_SIZE = 3;
+	const RAY_DOT_SIZE = 2;
 
 	let _canvas;
 	let _context;
@@ -45,8 +46,8 @@
 		]
 	];
 
-	let _viewPosition = {x: 1.5, y: 2, z: 0};
-	let _viewAngle = {h: 0, v: 0};
+	let _viewPosition = {x: 1.5, y: 3.3, z: 0.5};
+	let _viewAngle = {h: -1.3, v: 0.0};
 
 	document.addEventListener('DOMContentLoaded', function() {
 		_canvas = document.getElementById('canvas');
@@ -69,14 +70,14 @@
 					_viewPosition = {
 						x: _viewPosition.x + 0.08 * Math.cos(_viewAngle.h),
 						y: _viewPosition.y + 0.08 * Math.sin(_viewAngle.h),
-						z: 0,
+						z: _viewPosition.z,
 					};
 					break;
 				case 'ArrowDown':
 					_viewPosition = {
 						x: _viewPosition.x - 0.08 * Math.cos(_viewAngle.h),
 						y: _viewPosition.y - 0.08 * Math.sin(_viewAngle.h),
-						z: 0,
+						z: _viewPosition.z,
 					};
 					break;
 				default:
@@ -133,6 +134,12 @@
 
 		//objCenter.x /= ray.lengthHorz;
 		//objCenter.y /= ray.lengthVert;
+		//objCenter.x *= (ray.length / 3);
+		//objCenter.y *= (ray.length / 3);
+		//objCenter.x *= (ray.lengthHorz / 3);
+		//objCenter.y *= (ray.lengthVert / 3);
+		//objCenter.x *= Math.cos(ray.angleDiff.h);
+		//objCenter.y *= Math.cos(ray.angleDiff.v);
 		
 		let objWidth = RAY_DOT_SIZE;
 		let objHeight = RAY_DOT_SIZE;
@@ -216,6 +223,7 @@
 			dest:			false,
 		};
 
+		/*
 		while( clear ) {
 			var testPoint = {};
 			var flatLength = testLength * Math.cos(rayAngle.v);
@@ -236,6 +244,56 @@
 				break;
 			}
 		}
+		*/
+
+		let finished = false;
+		let lastIncr = false;
+		let forwards = true;
+		let counter = 0;
+
+		while( !finished ) {
+			if( forwards ) {
+				if( lastIncr ) {
+					testLength += lastIncr;
+				} else {
+					testLength += RAY_LENGTH_LARGE_INCREMENT;
+				}
+			} else {
+				testLength -= RAY_LENGTH_LARGE_INCREMENT;
+			}
+
+			var testPoint = {};
+			var xDist = testLength * Math.cos(rayAngle.h);
+			var yDist = testLength * Math.sin(rayAngle.h);
+			var zDist = testLength * Math.sin(rayAngle.v);
+			
+			testPoint.x = position.x + xDist;
+			testPoint.y = position.y + yDist;
+			testPoint.z = position.z + zDist;
+
+			clear = isPointFree(testPoint.x, testPoint.y, testPoint.z);
+
+			if( forwards ) {
+				if( testLength > RAY_MAX ) {
+					finished = true;
+					break;
+				}
+				if( !clear ) {
+					forwards = false;
+				}
+			} else {
+				if( clear ) {
+					forwards = true;
+					lastIncr = RAY_LENGTH_INCREMENT;
+				}
+			}
+
+			counter++;
+
+			if( counter > 200 ) {
+				break;
+			}
+		}
 
 		ray.hitObstacle = !clear;
 		ray.length = testLength;
@@ -246,6 +304,7 @@
 		ray.lengthVert *= Math.cos(ray.angleDiff.v);
 
 		ray.length = testLength;
+		ray.length = testLength * Math.cos(ray.angleDiff.h) * Math.cos(ray.angleDiff.v);
 
 		if( !clear ) {
 			ray.dest = testPoint;
